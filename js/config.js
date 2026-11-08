@@ -3,14 +3,14 @@
 //  pour changer le bailleur, les clauses ou ajouter un logement.
 // ============================================================
 
-export const APP_VERSION = "1.1.0";
+export const APP_VERSION = "1.2.0";
 
 export const BAILLEUR = {
   nomPrenom: "CRESP Annie",
   denomination: "SCI CBI",
   domicile: ["60 rue Dora Maar", "34070 Montpellier"],
   adresse: "Idem",
-  email: "annie.cresp@wanadoo.fr",
+  email: "locationslogements34@gmail.com",
 };
 
 // Clauses identiques pour tous les logements (reprises du bail pré-rempli).

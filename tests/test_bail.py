@@ -126,7 +126,7 @@ def test_bail_complet(page):
     assert f.stat().st_size < 4_000_000
     t = tout_texte(doc)
     for attendu in [
-        "CRESP Annie", "SCI CBI", "60 rue Dora Maar", "annie.cresp@wanadoo.fr",
+        "CRESP Annie", "SCI CBI", "60 rue Dora Maar", "locationslogements34@gmail.com",
         "Julie MARTIN — julie@example.com",
         "11 rue Guillaume d'Autignac — Bâtiment C9", "2e étage — 34070 Montpellier",
         "Cellier privé", "Cuisine équipée", "01/09/2026", "1 an",
@@ -178,7 +178,7 @@ def test_apercu_avant_enregistrement(page):
     page.locator(".page-apercu").nth(8).scroll_into_view_if_needed()
     page.wait_for_timeout(300)
     page.screenshot(path=str(SORTIE / "apercu_p9.png"))
-    page.click("#btn-corriger")
+    page.click("#btn-retour")
     assert page.is_hidden("#apercu")
     assert page.input_value("#c-prenom") == "Julie"
     assert page.locator(".page-apercu").count() == 0
@@ -194,7 +194,7 @@ def test_apercu_refuse_si_incomplet(page):
 def test_correction_prise_en_compte(page):
     remplir(page)
     page.click("#btn-apercu")
-    page.click("#btn-corriger")
+    page.click("#btn-retour")
     page.fill("#c-nom", "Durand")
     nom, doc, _ = telecharger(page, "bail_corrige.pdf")
     assert nom == "Bail_MD2_Julie_Durand.pdf"
@@ -211,14 +211,76 @@ def test_garant_et_montants_modifies(page):
     remplir(page, loyer="1 234,50", charges="65")
     page.click("#garant-oui")
     page.fill("#c-garant-nom", "Paul Durand")
-    page.fill("#c-garant-adresse", "3 place de la Comédie, 34000 Montpellier")
+    page.fill("#c-garant-adresse", "3 place de la Comédie")
+    page.fill("#c-garant-cp", "34000")
+    page.fill("#c-garant-ville", "Montpellier")
     page.click('#duree button[data-duree^="9 mois"]')
     _, doc, _ = telecharger(page, "bail_garant.pdf")
     t = tout_texte(doc)
-    assert "Paul Durand — 3 place de la Comédie" in t
+    assert "Paul Durand — 3 place de la Comédie, 34000 Montpellier" in t
+    doc[1].get_pixmap(dpi=110).save(SORTIE / "garant_page2.png")
     assert "9 mois (location consentie à un étudiant)" in t
     assert "1 234,50 € + 65 € de charges = 1 299,50 €" in t
     assert "mille deux cent trente-quatre euros et cinquante centimes" in t
+
+
+@pytest.mark.parametrize("adresse,cp,ville,attendu,champ", [
+    ("", "34000", "Montpellier", "numéro et rue", "adresse"),
+    ("3 place de la Comédie", "", "Montpellier", "code postal", "cp"),
+    ("3 place de la Comédie", "Montpellier", "Montpellier", "code postal", "cp"),
+    ("3 place de la Comédie", "34000", "", "ville", "ville"),
+])
+def test_adresse_du_garant_complete_exigee(page, adresse, cp, ville, attendu, champ):
+    remplir(page)
+    page.click("#garant-oui")
+    page.fill("#c-garant-nom", "Paul Durand")
+    page.fill("#c-garant-adresse", adresse)
+    page.fill("#c-garant-cp", cp)
+    page.fill("#c-garant-ville", ville)
+    page.click("#btn-apercu")
+    assert page.is_hidden("#apercu")
+    assert attendu in page.inner_text("#message")
+    assert "invalide" in page.get_attribute(f"#c-garant-{champ}", "class")
+
+
+def test_precedent_du_navigateur_revient_au_formulaire(page):
+    remplir(page)
+    adresse = page.url
+    page.click("#btn-apercu")
+    page.wait_for_selector("#apercu:not([hidden])")
+    page.go_back()
+    page.wait_for_selector("#apercu", state="hidden")
+    assert page.url == adresse
+    assert page.input_value("#c-prenom") == "Julie"
+    assert page.is_visible("#btn-apercu")
+
+
+def test_nouveau_bail_repart_de_zero(page):
+    remplir(page, cave="12")
+    page.click("#garant-oui")
+    page.fill("#c-garant-nom", "Paul Durand")
+    assert page.is_visible("#btn-apercu")
+    page.click("#garant-non")
+    telecharger(page, "bail_avant_nouveau.pdf")
+    assert page.is_hidden("#btn-enregistrer")
+    page.click("#btn-nouveau")
+    page.wait_for_selector("#apercu", state="hidden")
+    assert page.is_hidden("#formulaire")
+    assert page.locator(".choix-btn.choisi").count() == 0
+    assert page.input_value("#c-prenom") == "" and page.input_value("#c-garant-nom") == ""
+    assert page.input_value("#c-signature") != ""
+    remplir(page, code="MD1", prenom="Léa", nom="Petit")
+    nom, _, _ = telecharger(page, "bail_apres_nouveau.pdf")
+    assert nom == "Bail_MD1_Léa_Petit.pdf" or nom == "Bail_MD1_Lea_Petit.pdf"
+
+
+def test_pas_d_encadre_a_joindre(page):
+    remplir(page)
+    telecharger(page, "bail_sans_encadre.pdf")
+    texte = page.inner_text("body")
+    assert "À joindre" not in texte and "DPE" not in texte
+    assert page.is_visible("#btn-nouveau")
+    page.screenshot(path=str(SORTIE / "apres_enregistrement.png"))
 
 
 def test_garant_abandonne_non_imprime(page):
@@ -292,7 +354,7 @@ def test_ipad_ouvre_le_menu_enregistrer(navigateur, url):
     p.click("#btn-enregistrer")
     p.wait_for_selector(".message.ok")
     assert p.evaluate("window.__partages") == ["Bail_MD2_Julie_Martin.pdf"]
-    assert p.is_visible("#rappel")
+    assert p.is_visible("#btn-nouveau")
     ctx.close()
 
 
@@ -310,7 +372,7 @@ def test_ipad_annulation(navigateur, url):
     p.click("#btn-apercu")
     p.click("#btn-enregistrer")
     p.wait_for_selector(".message.info:has-text('Rien n')")
-    assert p.is_hidden("#rappel")
+    assert p.is_visible("#btn-enregistrer") and p.is_hidden("#btn-nouveau")
     ctx.close()
 
 

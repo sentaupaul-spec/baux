@@ -49,7 +49,11 @@
       </div>
       <div id="bloc-garant" hidden>
         <div class="champ"><label for="c-garant-nom">Prénom et nom du garant</label><input id="c-garant-nom" type="text" autocomplete="off" autocapitalize="words"></div>
-        <div class="champ"><label for="c-garant-adresse">Adresse du garant</label><input id="c-garant-adresse" type="text" autocomplete="off"></div>
+        <div class="champ"><label for="c-garant-adresse">Adresse du garant (numéro et rue)</label><input id="c-garant-adresse" type="text" autocomplete="off"></div>
+        <div class="grille2">
+          <div class="champ"><label for="c-garant-cp">Code postal</label><input id="c-garant-cp" type="text" inputmode="numeric" autocomplete="off" maxlength="10"></div>
+          <div class="champ"><label for="c-garant-ville">Ville</label><input id="c-garant-ville" type="text" autocomplete="off" autocapitalize="words"></div>
+        </div>
       </div>
     </div>
 
@@ -91,13 +95,10 @@
   <div class="apercu-pages" id="apercu-pages"></div>
   <div class="apercu-bas">
     <div class="message" id="message-apercu" role="status" aria-live="polite"></div>
-    <div class="rappel" id="rappel" hidden>
-      <p class="rappel-titre">À joindre au bail</p>
-      <p>Le diagnostic énergie (DPE), l'état électricité et gaz, l'état des risques, la notice d'information, l'état des lieux et l'inventaire du mobilier.</p>
-    </div>
     <div class="apercu-boutons">
-      <button type="button" class="btn btn-secondaire" id="btn-corriger">Corriger</button>
+      <button type="button" class="btn btn-secondaire" id="btn-retour">← Retour</button>
       <button type="button" class="btn btn-principal" id="btn-enregistrer">Enregistrer le bail</button>
+      <button type="button" class="btn btn-principal" id="btn-nouveau" hidden>Faire un nouveau bail</button>
     </div>
   </div>
 </div>

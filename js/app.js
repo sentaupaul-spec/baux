@@ -101,7 +101,10 @@ function lireFormulaire() {
   if (!v("c-nom")) return erreur($("c-nom"), "Il manque le nom du locataire.");
   if (v("c-email") && !/^\S+@\S+\.\S+$/.test(v("c-email"))) return erreur($("c-email"), "L'adresse e-mail semble incomplète. Corrigez-la ou laissez la case vide.");
   if (garantOui() && !v("c-garant-nom")) return erreur($("c-garant-nom"), "Il manque le nom du garant.");
-  if (garantOui() && !v("c-garant-adresse")) return erreur($("c-garant-adresse"), "Il manque l'adresse du garant.");
+  if (garantOui() && !v("c-garant-adresse")) return erreur($("c-garant-adresse"), "Il manque l'adresse du garant (numéro et rue).");
+  if (garantOui() && !v("c-garant-cp")) return erreur($("c-garant-cp"), "Il manque le code postal du garant.");
+  if (garantOui() && !/^(?=.*\d)[A-Za-z0-9 -]{4,10}$/.test(v("c-garant-cp"))) return erreur($("c-garant-cp"), "Le code postal du garant n'est pas lisible. Exemple : 34070");
+  if (garantOui() && !v("c-garant-ville")) return erreur($("c-garant-ville"), "Il manque la ville du garant.");
   if (!v("c-effet")) return erreur($("c-effet"), "Il manque la date d'entrée.");
   const loyer = lireMontant(v("c-loyer")), charges = lireMontant(v("c-charges"));
   if (loyer === null || loyer <= 0) return erreur($("c-loyer"), "Le loyer n'est pas lisible. Exemple : 410");
@@ -114,7 +117,7 @@ function lireFormulaire() {
     nom: v("c-nom"),
     email: v("c-email"),
     garantNom: garantOui() ? v("c-garant-nom") : "",
-    garantAdresse: garantOui() ? v("c-garant-adresse") : "",
+    garantAdresse: garantOui() ? `${v("c-garant-adresse")}, ${v("c-garant-cp")} ${v("c-garant-ville")}` : "",
     dateEffet: v("c-effet"),
     duree: dureeChoisie(),
     cave: v("c-cave"),
@@ -153,11 +156,13 @@ function ouvrirApercu() {
   }
   afficherApercu($("apercu-pages"), pret.journal);
   message("", "", "message-apercu");
-  $("rappel").hidden = true;
+  $("btn-enregistrer").hidden = false;
+  $("btn-nouveau").hidden = true;
   $("apercu").hidden = false;
   document.body.classList.add("apercu-ouvert");
   $("apercu-pages").scrollTop = 0;
   $("apercu-titre").focus({ preventScroll: true });
+  history.pushState({ apercu: true }, ""); // le bouton « précédent » du navigateur ramène au formulaire
 }
 
 function fermerApercu() {
@@ -167,11 +172,33 @@ function fermerApercu() {
   pret = null;
 }
 
+function retour() {
+  fermerApercu();
+  if (history.state && history.state.apercu) history.back();
+}
+
+function nouveauBail() {
+  retour();
+  document.querySelectorAll("#formulaire input").forEach((i) => { i.value = ""; i.classList.remove("invalide"); });
+  $("garant-non").click();
+  $("duree").querySelector("button").click();
+  $("c-signature").value = aujourdhui();
+  message("", "");
+  code = null;
+  document.querySelectorAll(".choix-btn").forEach((b) => {
+    b.classList.remove("choisi");
+    b.setAttribute("aria-pressed", "false");
+  });
+  $("formulaire").hidden = true;
+  window.scrollTo(0, 0);
+}
+
 function enregistrer() {
   if (!pret) return;
   const fait = () => {
     message("ok", "C'est fait : le bail est enregistré.", "message-apercu");
-    $("rappel").hidden = false;
+    $("btn-enregistrer").hidden = true;
+    $("btn-nouveau").hidden = false;
   };
   if (estIOS() && peutPartager(pret.fichier)) { // à appeler dans le geste : iOS l'exige
     message("info", "Dans le menu qui s'ouvre, touchez « Enregistrer dans Fichiers ».", "message-apercu");
@@ -196,7 +223,10 @@ async function demarrer() {
   ["c-prenom", "c-nom", "c-effet"].forEach((i) => $(i).addEventListener("input", majResume));
   $("btn-apercu").onclick = ouvrirApercu;
   $("btn-enregistrer").onclick = enregistrer;
-  $("btn-corriger").onclick = fermerApercu;
+  $("btn-retour").onclick = retour;
+  $("btn-nouveau").onclick = nouveauBail;
+  history.scrollRestoration = "manual";
+  window.addEventListener("popstate", () => { if (!$("apercu").hidden) fermerApercu(); });
   try {
     await chargerPages();
     $("chargement").hidden = true;
