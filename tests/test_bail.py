@@ -101,6 +101,7 @@ def test_bail_de_chaque_appartement(page, code, adresse, pieces, chambres, loyer
     for attendu in [
         adresse, f"{etage} — 34070 Montpellier", f"séjour + {chambres} chambres meublées",
         f"{loyer} € + 70 € de charges = {total} €", f"{loyer} € ({lettres})",
+        f"70 € soit un total de {total} €",
     ]:
         assert attendu in t, attendu
     assert code not in t
@@ -109,6 +110,10 @@ def test_bail_de_chaque_appartement(page, code, adresse, pieces, chambres, loyer
     mots_page2 = doc[1].get_text().split()
     assert pieces in mots_page2
     assert {"MD1": "60", "MD2": "72", "MD3": "72"}[code] in mots_page2
+    echelle = fitz.Matrix(595.28 / 1654, 595.28 / 1654)
+    traits = lambda x, y, l, h: [d for d in doc[2].get_drawings() if d["rect"].intersects(fitz.Rect(x, y, x + l, y + h) * echelle)]
+    assert traits(963, 319, 35, 33), "eau chaude collectif non coché"
+    assert not traits(743, 319, 36, 34), "eau chaude individuel coché"
     for i in (1, 2):
         doc[i].get_pixmap(dpi=90).save(SORTIE / f"{code}_page{i + 1}.png")
 
@@ -130,15 +135,17 @@ def test_bail_complet(page):
     assert f.stat().st_size < 4_000_000
     t = tout_texte(doc)
     for attendu in [
-        "CRESP Annie", "SCI CBI", "60 rue Dora Maar", "locationslogements34@gmail.com",
+        "CRESP Annie", "SCI CBI", "60 rue Dora Maar, 34070 Montpellier", "locationslogements34@gmail.com",
         "Nom et prénom du locataire : Julie MARTIN", "Date et lieu de naissance : 12/03/2001 à Nîmes",
         "Téléphone : 06 12 34 56 78", "Adresse e-mail : julie@example.com",
         "11 rue Guillaume d'Autignac — Bâtiment C9", "2e étage — 34070 Montpellier",
         "Cellier privé", "Cuisine équipée", "01/09/2026", "1 an",
         "380 € + 70 € de charges = 450 €", "380 € (trois cent quatre-vingts euros)",
         "quatre cent cinquante euros", "soixante-dix euros",
-        "Réactualisé avec le loyer", "par virement bancaire",
-        "Dépôt d'1 mois de loyer (encaissé)", "Toutes fêtes interdites", "Montpellier",
+        "Réactualisé avec le loyer", "le 1er de chaque mois par virement bancaire",
+        "Dépôt encaissé de 500 €", "Toutes fêtes interdites", "Respecter la tranquillité des voisins",
+        "Tenir propre l'appartement et veiller à l'entretien courant de tout ce que comporte celui-ci",
+        "Montpellier",
     ]:
         assert attendu in t, attendu
     assert "MD2" not in t
@@ -313,6 +320,101 @@ def test_ancien_bloc_locataire_retire_du_modele():
     im = np.asarray(Image.open(RACINE / "assets/pages/page2.jpg").convert("L"))
     assert (im[484:580, 140:1500] < 140).sum() == 0, "ancien libellé ou pointillés encore présents"
     assert (im[642:678, 100:1500] < 140).sum() > 500, "« Désigné » n'a pas été descendu"
+
+
+def test_cave_du_md1_preremplie(page):
+    page.click('.choix-btn[data-k="MD1"]')
+    assert page.input_value("#c-cave") == "7"
+    page.click('.choix-btn[data-k="MD3"]')
+    assert page.input_value("#c-cave") == ""
+    page.click('.choix-btn[data-k="MD2"]')
+    assert page.input_value("#c-cave") == ""
+    remplir(page, code="MD1")
+    _, doc, _ = telecharger(page, "bail_cave.pdf")
+    assert "7" in doc[2].get_text().split()
+    doc[2].get_pixmap(dpi=200).save(SORTIE / "cave_page3.png")
+
+
+def test_pas_de_numero_de_cave_pour_md2(page):
+    remplir(page)
+    _, doc, _ = telecharger(page, "bail_sans_cave.pdf")
+    assert "7" not in doc[2].get_text().split()
+
+
+@pytest.mark.parametrize("code", ["MD1", "MD2", "MD3"])
+def test_wifi_ecrit_pour_chaque_appartement(page, code):
+    remplir(page, code=code)
+    _, doc, _ = telecharger(page, f"bail_wifi_{code}.pdf")
+    assert "Wifi avec la fibre gratuit" in doc[2].get_text()
+    assert "Dépôt encaissé de 500 €" in doc[5].get_text()
+
+
+def test_quatre_lignes_espacees_pour_les_conditions(page):
+    im = np.asarray(Image.open(RACINE / "assets/pages/page8.jpg").convert("L"))
+    remplies = (im[1180:1365, 108:1479] < 170).sum(axis=1) > 0
+    ruptures = np.flatnonzero(np.diff(remplies.astype(int)) == 1)
+    assert len(ruptures) + int(remplies[0]) == 4, "il doit rester quatre lignes de pointillés"
+    assert (im[1340:1365, 108:1479] < 170).sum() == 0
+    remplir(page)
+    _, doc, _ = telecharger(page, "bail_conditions.pdf")
+    tailles = [s["size"] for b in doc[7].get_text("dict")["blocks"] for l in b.get("lines", []) for s in l["spans"]
+               if "entretien courant" in s["text"] or "Toutes fêtes" in s["text"]]
+    assert len(tailles) == 2 and tailles[0] == tailles[1], "même taille sur toutes les conditions"
+
+
+def test_date_et_lieu_retires_de_la_signature(page):
+    im = np.asarray(Image.open(RACINE / "assets/pages/page9.jpg").convert("L"))
+    assert (im[640:680, 142:222] < 170).sum() == 0
+    assert (im[640:680, 530:598] < 170).sum() == 0
+    assert (im[640:680, 109:137] < 170).sum() > 50, "« Le » doit rester"
+    assert (im[640:680, 512:525] < 170).sum() > 20, "« à » doit rester"
+    remplir(page, signature="2026-11-08")
+    _, doc, _ = telecharger(page, "bail_signature.pdf")
+    assert "08/11/2026" in doc[8].get_text() and "Montpellier" in doc[8].get_text()
+    doc[8].get_pixmap(dpi=200).save(SORTIE / "signature_page9.png")
+
+
+def test_cautionneur_ajoute_a_la_signature():
+    im = np.asarray(Image.open(RACINE / "assets/pages/page9.jpg").convert("L"))
+    assert (im[700:738, 1150:1385] < 170).sum() > 800, "« et du cautionneur » doit être écrit"
+    assert (im[700:738, 855:1140] < 170).sum() > 800, "« Signature du locataire » doit rester"
+
+
+def test_libelle_du_depot_reduit():
+    im = np.asarray(Image.open(RACINE / "assets/pages/page6.jpg").convert("L"))
+    assert (im[1100:1170, 104:900] < 170).sum() > 1000, "le nouveau libellé doit être écrit"
+    assert (im[1140:1170, 90:1500] < 170).sum() == 0, "la deuxième ligne doit avoir disparu"
+    assert (im[1100:1170, 1250:1500] < 170).sum() == 0, "« / Garantie autonome » doit avoir disparu"
+
+
+def test_recuperables_retire_page_5(page):
+    im = np.asarray(Image.open(RACINE / "assets/pages/page5.jpg").convert("L"))
+    assert (im[1128:1168, 800:1000] < 170).sum() == 0
+    assert (im[1128:1168, 786:800] < 170).sum() > 0, "les deux-points doivent rester"
+    remplir(page)
+    _, doc, _ = telecharger(page, "bail_recuperables.pdf")
+    echelle = fitz.Matrix(595.28 / 1654, 595.28 / 1654)
+    zone = fitz.Rect(790, 1145, 950, 1160) * echelle
+    assert not [d for d in doc[4].get_drawings() if d["type"] == "s" and d["rect"].intersects(zone)]
+    doc[4].get_pixmap(dpi=200).save(SORTIE / "recuperables_page5.png")
+
+
+def test_lieu_de_paiement_retire_du_modele():
+    im = np.asarray(Image.open(RACINE / "assets/pages/page5.jpg").convert("L"))
+    assert (im[1004:1041, 492:1510] < 170).sum() == 0
+    assert (im[1004:1041, 107:490] < 170).sum() > 500, "le libellé « date ou période de paiement » doit rester"
+
+
+def test_encart_box_internet_retire():
+    im = np.asarray(Image.open(RACINE / "assets/pages/page3.jpg").convert("L"))
+    assert (im[958:1034, 90:1500] < 170).sum() == 0
+    assert (im[888:928, 105:1483] < 170).sum() > 1000, "les pointillés doivent rester"
+
+
+def test_encadre_nouveau_locataire_retire():
+    im = np.asarray(Image.open(RACINE / "assets/pages/page1.jpg").convert("L"))
+    assert (im[26:205, 26:1628] < 170).sum() == 0
+    assert (im[205:320, 26:1628] < 170).sum() > 1000, "le titre du contrat doit rester"
 
 
 def test_clause_resolutoire_reecrite_dans_le_modele():

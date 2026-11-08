@@ -21,6 +21,14 @@ SORTIE = RACINE / "assets" / "pages"
 # décalage_x : on recopie les points de suite voisins (décalés d'autant) à la place de l'essai.
 # 0 = on peint simplement en blanc.
 ESSAIS = [
+    (1, 60, 70, 1600, 205, 0),       # encadré publicitaire « NOUVEAU LOCATAIRE »
+    (3, 90, 958, 1500, 1034, 0),     # encart publicitaire « Forfait Box Internet »
+    (5, 492, 1004, 1510, 1041, 0),   # pointillés et « Lieu de paiement » : une seule mention écrite par js/pdf.js
+    (5, 786, 1128, 800, 1168, 167),  # les deux-points, ramenés juste après « Charges »
+    (5, 800, 1128, 1000, 1168, 0),   # « récupérables » et le début des pointillés
+    (8, 100, 1305, 1500, 1360, 0),   # X. Autres conditions : les deux dernières lignes de pointillés
+    (9, 142, 640, 222, 680, 0),      # « [date] »
+    (9, 530, 640, 598, 680, 0),      # « [lieu] »
     (2, 214, 134, 276, 165, 137),    # « 442 »
     (2, 785, 224, 884, 262, 137),    # « fdgfh,g »
     (2, 284, 512, 344, 546, 137),    # « dffff »
@@ -31,20 +39,30 @@ ESSAIS = [
     (2, 140, 484, 1500, 580, 0),     # bloc locataire : réécrit en entier par js/pdf.js (LOCATAIRE)
 ]
 
-# Lignes à descendre pour faire de la place : (page, x0, y0, x1, y1, décalage_y).
+# Morceaux à déplacer : (page, x0, y0, x1, y1, décalage_x, décalage_y).
 DEPLACEMENTS = [
-    (2, 100, 608, 1500, 644, 34),    # « Désigné (s) ci-après le locataire », sous le bloc locataire agrandi
+    (2, 100, 608, 1500, 644, 0, 34),      # « Désigné (s) ci-après le locataire », sous le bloc locataire agrandi
+    (8, 100, 1278, 1500, 1293, 0, 43),    # X. Autres conditions : 4 lignes espacées au lieu de 6 serrées
+    (8, 100, 1247, 1500, 1262, 0, 28),
+    (8, 100, 1216, 1500, 1231, 0, 13),
 ]
 
-# Texte imprimé du modèle à remplacer, soulignement pointillé compris :
-# (page, (x0, y0, x1, y1) à blanchir, [(x, ligne de base, texte), …]).
+# Texte imprimé du modèle à remplacer :
+# (page, (x0, y0, x1, y1) à blanchir, [(x, ligne de base, texte), …], soulignement pointillé, gras).
 POLICE = "/System/Library/Fonts/Supplemental/Arial.ttf"
+POLICE_GRAS = "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
 TAILLE_PX = 27.3  # taille mesurée sur le scan
 REECRITURES = [
     (6, (190, 1907, 1500, 1970), [  # clause résolutoire : défaut de paiement
         (194, 1929, "en cas de défaut de paiement du loyer toutes charges comprises, des provisions de charge, ou de la"),
         (199, 1960, "régularisation annuelle de charge"),
-    ]),
+    ], True, False),
+    (6, (90, 1100, 1500, 1170), [  # VI. Garanties : le libellé réduit à l'essentiel
+        (104, 1127, "Montant du dépôt de garantie de l'exécution des obligations du locataire :"),
+    ], False, False),
+    (9, (845, 700, 1500, 738), [  # signature : le cautionneur signe aussi
+        (855, 727, "Signature du locataire et du cautionneur"),
+    ], False, True),
 ]
 
 
@@ -87,29 +105,30 @@ def effacer(page: np.ndarray, n: int) -> None:
             page[y0:y1, x0:x1] = page[y0:y1, x0 + dx:x1 + dx]
         else:
             page[y0:y1, x0:x1] = 255
-    for p, x0, y0, x1, y1, dy in DEPLACEMENTS:
+    for p, x0, y0, x1, y1, dx, dy in DEPLACEMENTS:
         if p != n:
             continue
         morceau = page[y0:y1, x0:x1].copy()
         page[y0:y1, x0:x1] = 255
-        page[y0 + dy:y1 + dy, x0:x1] = morceau
-    for p, (x0, y0, x1, y1), lignes in REECRITURES:
+        page[y0 + dy:y1 + dy, x0 + dx:x1 + dx] = morceau
+    for p, (x0, y0, x1, y1), lignes, souligne, gras in REECRITURES:
         if p != n:
             continue
         page[y0:y1, x0:x1] = 255
         for x, base, texte in lignes:
-            imprimer(page, x, base, texte)
+            imprimer(page, x, base, texte, souligne, gras)
 
 
-def imprimer(page: np.ndarray, x: int, base: int, texte: str) -> None:
-    """Écrit une ligne comme sur le scan : Arial légèrement adouci, pointillés 4 px / 4 px sous le texte."""
+def imprimer(page: np.ndarray, x: int, base: int, texte: str, souligne: bool, gras: bool) -> None:
+    """Écrit une ligne comme sur le scan : Arial légèrement adouci, pointillés 4 px / 4 px en option."""
     zoom = 4
-    police = ImageFont.truetype(POLICE, round(TAILLE_PX * zoom))
+    police = ImageFont.truetype(POLICE_GRAS if gras else POLICE, round(TAILLE_PX * zoom))
     largeur, hauteur, ligne = math.ceil(police.getlength(texte) / zoom), 50, 36
     grand = Image.new("L", (largeur * zoom, hauteur * zoom), 255)
     ImageDraw.Draw(grand).text((0, ligne * zoom), texte, font=police, fill=0, anchor="ls")
     a = np.asarray(grand.resize((largeur, hauteur), Image.LANCZOS).filter(ImageFilter.GaussianBlur(0.5))).copy()
-    a[ligne + 2:ligne + 5, np.arange(largeur) % 8 < 4] = 0
+    if souligne:
+        a[ligne + 2:ligne + 5, np.arange(largeur) % 8 < 4] = 0
     y = base - ligne
     page[y:y + hauteur, x:x + largeur] = np.minimum(page[y:y + hauteur, x:x + largeur], a)
 

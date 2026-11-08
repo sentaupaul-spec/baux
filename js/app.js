@@ -43,6 +43,7 @@ function choisir(k) {
   });
   $("c-loyer").value = formatSaisie(LOGEMENTS[k].loyer);
   $("c-charges").value = formatSaisie(LOGEMENTS[k].charges);
+  $("c-cave").value = LOGEMENTS[k].cave || "";
   $("formulaire").hidden = false;
   majTotal();
   majResume();

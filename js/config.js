@@ -3,26 +3,30 @@
 //  pour changer le bailleur, les clauses ou ajouter un logement.
 // ============================================================
 
-export const APP_VERSION = "1.3.0";
+export const APP_VERSION = "1.4.0";
 
 export const BAILLEUR = {
   nomPrenom: "CRESP Annie",
   denomination: "SCI CBI",
-  domicile: ["60 rue Dora Maar", "34070 Montpellier"],
+  domicile: "60 rue Dora Maar, 34070 Montpellier",
   adresse: "Idem",
   email: "locationslogements34@gmail.com",
 };
 
 // Clauses identiques pour tous les logements (reprises du bail pré-rempli).
 export const CLAUSES = {
+  internet: "Wifi avec la fibre gratuit",
   revision: "1er septembre",
   irl: "1er trimestre",
   revisionForfait: "Réactualisé avec le loyer",
   periodicite: "mensuel",
-  jourPaiement: "1er",
-  lieuPaiement: "par virement bancaire",
-  depot: "Dépôt d'1 mois de loyer (encaissé)",
-  conditions: ["Toutes fêtes interdites", "Respecter les voisins", "Tenir propre l'appartement"],
+  paiement: "le 1er de chaque mois par virement bancaire",
+  depot: "Dépôt encaissé de 500 €",
+  conditions: [
+    "Toutes fêtes interdites",
+    "Respecter la tranquillité des voisins",
+    "Tenir propre l'appartement et veiller à l'entretien courant de tout ce que comporte celui-ci",
+  ],
   lieuSignature: "Montpellier",
 };
 
@@ -36,7 +40,7 @@ const COMMUN_AUX_APPARTEMENTS = {
   autresParties: ["balcon", "autres"], // grenier comble terrasse balcon loggia jardin autres
   autresTexte: "Cellier privé",
   chauffage: "collectif",      // individuel | collectif
-  eauChaude: "individuel",     // individuel | collectif
+  eauChaude: "collectif",      // individuel | collectif
   privatif: ["cave"],          // cave parking garage autres
   commun: ["velo", "espaces-verts", "poubelle", "gardiennage"], // velo ascenseur espaces-verts jeux laverie poubelle gardiennage autres
   charges: 70,
@@ -54,6 +58,7 @@ export const LOGEMENTS = {
     localisation: ["9 rue Jean de Montlaur", "4e étage — 34070 Montpellier"],
     surface: "60",
     pieces: "3",
+    cave: "7",
     equipements: equipements(2),
     loyer: 410,
   },

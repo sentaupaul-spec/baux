@@ -196,7 +196,7 @@ export function construirePDF(b) {
   // Bailleur
   ecrire(doc, LIGNES.bailleurNom, BAILLEUR.nomPrenom);
   ecrire(doc, LIGNES.denomination, BAILLEUR.denomination);
-  BAILLEUR.domicile.forEach((t, i) => ecrire(doc, LIGNES.domicile[i], t));
+  ecrire(doc, LIGNES.domicile, BAILLEUR.domicile);
   ecrire(doc, LIGNES.adresse, BAILLEUR.adresse);
   ecrire(doc, LIGNES.email, BAILLEUR.email);
 
@@ -215,6 +215,7 @@ export function construirePDF(b) {
   ecrire(doc, LIGNES.pieces, a.pieces);
   ecrire(doc, LIGNES.autresTexte, a.autresTexte);
   a.equipements.forEach((t, i) => ecrire(doc, LIGNES.equipements[i], t));
+  ecrire(doc, LIGNES.internet, CLAUSES.internet);
   [...CASES_COMMUNES,
     `habitat.${a.habitat}`, `regime.${a.regime}`, `periode.${a.periode}`,
     `chauffage.${a.chauffage}`, `eau.${a.eauChaude}`,
@@ -241,10 +242,9 @@ export function construirePDF(b) {
   ecrire(doc, LIGNES.forfaitMontant, `${C_} € (${montantEnLettres(b.charges)})`);
   ecrire(doc, LIGNES.forfaitRevision, CLAUSES.revisionForfait);
   ecrire(doc, LIGNES.periodicite, CLAUSES.periodicite);
-  ecrire(doc, LIGNES.jourPaiement, CLAUSES.jourPaiement);
-  ecrire(doc, LIGNES.lieuPaiement, CLAUSES.lieuPaiement);
+  ecrire(doc, LIGNES.paiement, CLAUSES.paiement);
   ecrire(doc, LIGNES.loyerHC, `${L_} €`);
-  ecrire(doc, LIGNES.chargesEch, `${C_} €`);
+  ecrire(doc, LIGNES.chargesEch, `${C_} € soit un total de ${T_} €`);
 
   ecrire(doc, LIGNES.depot, CLAUSES.depot);
   CLAUSES.conditions.forEach((t, i) => ecrire(doc, LIGNES.conditions[i], t));
