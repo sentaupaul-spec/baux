@@ -52,8 +52,8 @@ def page(navigateur, url):
     assert not erreurs
 
 
-def remplir(p, prenom="Julie", nom="Martin", effet="2026-09-01", **autres):
-    p.click('.choix-btn[data-k="MD2"]')
+def remplir(p, prenom="Julie", nom="Martin", effet="2026-09-01", code="MD2", **autres):
+    p.click(f'.choix-btn[data-k="{code}"]')
     p.fill("#c-prenom", prenom)
     p.fill("#c-nom", nom)
     p.fill("#c-effet", effet)
@@ -75,18 +75,45 @@ def tout_texte(doc):
     return "\n".join(pg.get_text() for pg in doc)
 
 
-def test_seul_md2_est_disponible(page):
-    assert page.is_disabled('.choix-btn[data-k="MD1"]')
-    assert page.is_disabled('.choix-btn[data-k="MD3"]')
-    assert page.is_enabled('.choix-btn[data-k="MD2"]')
+def test_les_trois_appartements_sont_disponibles(page):
+    for code in ("MD1", "MD2", "MD3"):
+        assert page.is_enabled(f'.choix-btn[data-k="{code}"]')
+    assert "Pas encore disponible" not in page.inner_text("#choix-appart")
     assert page.is_hidden("#formulaire")
+
+
+@pytest.mark.parametrize("code, adresse, pieces, chambres, loyer, total, lettres", [
+    ("MD1", "9 rue Jean de Montlaur", "3", "2", "410", "480", "quatre cent dix euros"),
+    ("MD2", "11 rue Guillaume d'Autignac — Bâtiment C9", "4", "3", "380", "450", "trois cent quatre-vingts euros"),
+    ("MD3", "10 rue Jean Raimond de Comminges", "4", "3", "410", "480", "quatre cent dix euros"),
+])
+def test_bail_de_chaque_appartement(page, code, adresse, pieces, chambres, loyer, total, lettres):
+    remplir(page, code=code)
+    nom, doc, _ = telecharger(page, f"bail_{code}.pdf")
+    assert nom == f"Bail_{code}_Julie_Martin.pdf"
+    assert doc.page_count == 9
+    t = tout_texte(doc)
+    etage = "2e étage" if code == "MD2" else "4e étage"
+    for attendu in [
+        adresse, f"{etage} — 34070 Montpellier", f"séjour + {chambres} chambres meublées",
+        f"{loyer} € + 70 € de charges = {total} €", f"{loyer} € ({lettres})",
+    ]:
+        assert attendu in t, attendu
+    assert code not in t
+    if code != "MD2":
+        assert "Bâtiment C9" not in t
+    mots_page2 = doc[1].get_text().split()
+    assert pieces in mots_page2
+    assert {"MD1": "60", "MD2": "72", "MD3": "72"}[code] in mots_page2
+    for i in (1, 2):
+        doc[i].get_pixmap(dpi=90).save(SORTIE / f"{code}_page{i + 1}.png")
 
 
 def test_loyer_prerempli(page):
     page.click('.choix-btn[data-k="MD2"]')
-    assert page.input_value("#c-loyer") == "410,00"
+    assert page.input_value("#c-loyer") == "380,00"
     assert page.input_value("#c-charges") == "70,00"
-    assert page.inner_text("#c-total").replace(" ", " ") == "480,00 €"
+    assert page.inner_text("#c-total").replace(" ", " ") == "450,00 €"
 
 
 def test_bail_complet(page):
@@ -103,8 +130,8 @@ def test_bail_complet(page):
         "Julie MARTIN — julie@example.com",
         "11 rue Guillaume d'Autignac — Bâtiment C9", "2e étage — 34070 Montpellier",
         "Cellier privé", "Cuisine équipée", "01/09/2026", "1 an",
-        "410 € + 70 € de charges = 480 €", "410 € (quatre cent dix euros)",
-        "quatre cent quatre-vingts euros", "soixante-dix euros",
+        "380 € + 70 € de charges = 450 €", "380 € (trois cent quatre-vingts euros)",
+        "quatre cent cinquante euros", "soixante-dix euros",
         "1er septembre de chaque année", "par virement bancaire",
         "Dépôt d'1 mois de loyer (encaissé)", "Toutes fêtes interdites", "Montpellier",
     ]:

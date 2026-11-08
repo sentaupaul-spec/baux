@@ -12,9 +12,9 @@ arrivent toutes seules, et l'app marche aussi sans internet une fois ouverte.
 
 Parcours : choisir l'appartement → remplir → **aperçu des 9 pages** → « Enregistrer le bail » (ou « Corriger »).
 
-## Ajouter MD1 ou MD3
+## Modifier un appartement
 
-Dans `js/config.js`, remplir le bloc du logement avec les mêmes champs que MD2, puis mettre `pret: true`.
+Tout est dans `js/config.js` : ce qui est identique aux trois dans `COMMUN_AUX_APPARTEMENTS`, le reste (adresse, étage, surface, pièces, chambres, loyer) dans le bloc de chaque logement. Une valeur mise dans un bloc remplace celle du commun.
 
 ## Organisation
 
