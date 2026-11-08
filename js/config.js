@@ -3,7 +3,7 @@
 //  pour changer le bailleur, les clauses ou ajouter un logement.
 // ============================================================
 
-export const APP_VERSION = "1.2.0";
+export const APP_VERSION = "1.3.0";
 
 export const BAILLEUR = {
   nomPrenom: "CRESP Annie",
@@ -17,7 +17,7 @@ export const BAILLEUR = {
 export const CLAUSES = {
   revision: "1er septembre",
   irl: "1er trimestre",
-  revisionForfait: "1er septembre de chaque année",
+  revisionForfait: "Réactualisé avec le loyer",
   periodicite: "mensuel",
   jourPaiement: "1er",
   lieuPaiement: "par virement bancaire",

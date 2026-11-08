@@ -1,7 +1,7 @@
 // Fabrique le bail (9 pages A4) : l'image de chaque page vierge + le texte et les croix.
 // Tout est synchrone une fois les images chargées : indispensable pour le menu Partager d'iOS.
 import { BAILLEUR, CLAUSES } from "./config.js";
-import { CASES, CASES_COMMUNES, EFFACER, LIGNES, PARAPHE, PARAPHES, SIGNATURE, TRAITS } from "./gabarit.js";
+import { CASES, CASES_COMMUNES, EFFACER, LIGNES, LOCATAIRE, PARAPHE, PARAPHES, SIGNATURE, TRAITS } from "./gabarit.js";
 import { montantEnLettres } from "./montant.js";
 
 export const NB_PAGES = 9;
@@ -9,6 +9,7 @@ const MM_PAR_PX = 210 / 1654;
 const mm = (px) => px * MM_PAR_PX;
 const ENCRE = [0, 0, 0];
 const TAILLE = 11, TAILLE_MIN = 6.5;
+const TAILLE_IMPRIME = 9.75; // taille du texte imprimé sur le modèle
 
 export const URL_SIGNATURE = "assets/signature.png";
 export const URL_PARAPHE = "assets/paraphe.png";
@@ -131,6 +132,24 @@ function ecrireBloc(doc, lignes, texte) {
   });
 }
 
+/** Le bloc locataire, écrit comme le texte imprimé ; une seule taille pour les quatre lignes. */
+function ecrireLocataire(doc, lignes) {
+  const { p, xTiret, xTexte, xmax, y } = LOCATAIRE;
+  const textes = lignes.map(textePDF);
+  const dispo = mm(xmax - xTexte);
+  doc.setPage(p);
+  let z = TAILLE_IMPRIME;
+  doc.setFontSize(z);
+  while (Math.max(...textes.map((t) => doc.getTextWidth(t))) > dispo && z > TAILLE_MIN) {
+    z -= 0.25;
+    doc.setFontSize(z);
+  }
+  textes.forEach((t, i) => {
+    poserTexte(doc, p, "-", mm(xTiret), mm(y[i]));
+    poserTexte(doc, p, t, mm(xTexte), mm(y[i]));
+  });
+}
+
 function cocher(doc, nom) {
   const c = CASES[nom];
   if (!c) throw new Error("case inconnue : " + nom);
@@ -156,7 +175,7 @@ export function nomFichier(b) {
   return `Bail_${b.code}_${propre(b.prenom)}_${propre(b.nom)}.pdf`;
 }
 
-/** b : { code, logement, prenom, nom, email, garantNom, garantAdresse, dateEffet, duree, cave, loyer, charges, dateSignature } */
+/** b : { code, logement, prenom, nom, dateNaissance, lieuNaissance, telephone, email, garantNom, garantAdresse, dateEffet, duree, cave, loyer, charges, dateSignature } */
 export function construirePDF(b) {
   if (!images) throw new Error("pages non chargées");
   journal = [];
@@ -182,7 +201,12 @@ export function construirePDF(b) {
   ecrire(doc, LIGNES.email, BAILLEUR.email);
 
   // Locataire et garant
-  ecrireBloc(doc, LIGNES.locataire, b.email ? `${nomComplet} — ${b.email}` : nomComplet);
+  ecrireLocataire(doc, [
+    `Nom et prénom du locataire : ${nomComplet}`,
+    `Date et lieu de naissance : ${b.dateNaissance} à ${b.lieuNaissance}`,
+    `Téléphone : ${b.telephone}`,
+    `Adresse e-mail : ${b.email}`,
+  ]);
   if (b.garantNom) ecrireBloc(doc, LIGNES.garant, `${b.garantNom} — ${b.garantAdresse}`);
 
   // Logement

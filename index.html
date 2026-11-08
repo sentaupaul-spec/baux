@@ -41,7 +41,14 @@
         <div class="champ"><label for="c-prenom">Prénom</label><input id="c-prenom" type="text" autocomplete="off" autocapitalize="words"></div>
         <div class="champ"><label for="c-nom">Nom</label><input id="c-nom" type="text" autocomplete="off" autocapitalize="words"></div>
       </div>
-      <div class="champ"><label for="c-email">E-mail (si vous l'avez)</label><input id="c-email" type="email" autocomplete="off" autocapitalize="none" inputmode="email"></div>
+      <div class="grille2">
+        <div class="champ"><label for="c-naissance">Date de naissance (ex. 12/03/2001)</label><input id="c-naissance" type="text" inputmode="numeric" autocomplete="off" maxlength="10"></div>
+        <div class="champ"><label for="c-lieu">Lieu de naissance</label><input id="c-lieu" type="text" autocomplete="off" autocapitalize="words"></div>
+      </div>
+      <div class="grille2">
+        <div class="champ"><label for="c-tel">Téléphone</label><input id="c-tel" type="tel" inputmode="tel" autocomplete="off"></div>
+        <div class="champ"><label for="c-email">E-mail</label><input id="c-email" type="email" autocomplete="off" autocapitalize="none" inputmode="email"></div>
+      </div>
       <p class="question">Y a-t-il un garant ?</p>
       <div class="deux-choix" id="garant">
         <button type="button" class="choix-simple choisi" id="garant-non" aria-pressed="true">Non</button>

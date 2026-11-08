@@ -4,6 +4,9 @@
 // Une ligne de texte : page, x de départ, y du pointillé, x maximum.
 const L = (p, x, y, xmax = 1490) => ({ p, x, y, xmax });
 
+// Bloc locataire (page 2) : le modèle est vierge à cet endroit, tout est écrit à la taille du texte imprimé.
+export const LOCATAIRE = { p: 2, xTiret: 151, xTexte: 198, xmax: 1490, y: [509, 543, 577, 611] };
+
 export const LIGNES = {
   bailleurNom: L(1, 225, 1254),
   denomination: L(1, 225, 1349),
@@ -12,7 +15,6 @@ export const LIGNES = {
   email: L(1, 225, 1667),
 
   garant: [L(2, 210, 446, 1480), L(2, 210, 477, 1480)],
-  locataire: [L(2, 210, 541, 1480), L(2, 210, 571, 1480)],
   localisation: [L(2, 115, 1243, 1480), L(2, 115, 1336, 1480)],
   surface: L(2, 445, 1722, 522),
   pieces: L(2, 590, 1786, 660),
@@ -98,7 +100,7 @@ export const CASES = {
 // Cases cochées pour tous les logements (reprises du bail pré-rempli).
 export const CASES_COMMUNES = [
   "bailleur.morale", "societe-familiale.oui", "mandataire.non", "usage.habitation",
-  "relocation.oui", "reference.non", "charges.forfait", "assurance.non", "paiement.echoir",
+  "relocation.oui", "reference.non", "assurance.non", "paiement.echoir",
 ];
 
 // Rubriques sans objet, barrées comme sur le bail pré-rempli : page, x0, y0, x1, y1.

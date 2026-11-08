@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """Prépare les 9 pages du bail vierge : A4 200 dpi, fond blanc, essais de frappe retirés.
 
-Usage : .venv/bin/python tools/preparer_pages.py <dossier du bail vierge>
+Usage : .venv/bin/python tools/preparer_pages.py "<…>/Base Baux/bail vierge coloc bis/bail vierge 1"
 Écrit assets/pages/page1.jpg … page9.jpg (niveaux de gris).
 """
 import io
+import math
 import sys
 from pathlib import Path
 
 import fitz
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 LARGEUR, HAUTEUR = 1654, 2339  # A4 à 200 dpi
 RACINE = Path(__file__).resolve().parent.parent
@@ -27,6 +28,23 @@ ESSAIS = [
     (4, 826, 1095, 902, 1131, -186), # « Texte »
     (3, 1160, 2125, 1560, 2265, 0),  # signature restée dans les paraphes
     (3, 1145, 2172, 1160, 2265, 0),
+    (2, 140, 484, 1500, 580, 0),     # bloc locataire : réécrit en entier par js/pdf.js (LOCATAIRE)
+]
+
+# Lignes à descendre pour faire de la place : (page, x0, y0, x1, y1, décalage_y).
+DEPLACEMENTS = [
+    (2, 100, 608, 1500, 644, 34),    # « Désigné (s) ci-après le locataire », sous le bloc locataire agrandi
+]
+
+# Texte imprimé du modèle à remplacer, soulignement pointillé compris :
+# (page, (x0, y0, x1, y1) à blanchir, [(x, ligne de base, texte), …]).
+POLICE = "/System/Library/Fonts/Supplemental/Arial.ttf"
+TAILLE_PX = 27.3  # taille mesurée sur le scan
+REECRITURES = [
+    (6, (190, 1907, 1500, 1970), [  # clause résolutoire : défaut de paiement
+        (194, 1929, "en cas de défaut de paiement du loyer toutes charges comprises, des provisions de charge, ou de la"),
+        (199, 1960, "régularisation annuelle de charge"),
+    ]),
 ]
 
 
@@ -69,6 +87,31 @@ def effacer(page: np.ndarray, n: int) -> None:
             page[y0:y1, x0:x1] = page[y0:y1, x0 + dx:x1 + dx]
         else:
             page[y0:y1, x0:x1] = 255
+    for p, x0, y0, x1, y1, dy in DEPLACEMENTS:
+        if p != n:
+            continue
+        morceau = page[y0:y1, x0:x1].copy()
+        page[y0:y1, x0:x1] = 255
+        page[y0 + dy:y1 + dy, x0:x1] = morceau
+    for p, (x0, y0, x1, y1), lignes in REECRITURES:
+        if p != n:
+            continue
+        page[y0:y1, x0:x1] = 255
+        for x, base, texte in lignes:
+            imprimer(page, x, base, texte)
+
+
+def imprimer(page: np.ndarray, x: int, base: int, texte: str) -> None:
+    """Écrit une ligne comme sur le scan : Arial légèrement adouci, pointillés 4 px / 4 px sous le texte."""
+    zoom = 4
+    police = ImageFont.truetype(POLICE, round(TAILLE_PX * zoom))
+    largeur, hauteur, ligne = math.ceil(police.getlength(texte) / zoom), 50, 36
+    grand = Image.new("L", (largeur * zoom, hauteur * zoom), 255)
+    ImageDraw.Draw(grand).text((0, ligne * zoom), texte, font=police, fill=0, anchor="ls")
+    a = np.asarray(grand.resize((largeur, hauteur), Image.LANCZOS).filter(ImageFilter.GaussianBlur(0.5))).copy()
+    a[ligne + 2:ligne + 5, np.arange(largeur) % 8 < 4] = 0
+    y = base - ligne
+    page[y:y + hauteur, x:x + largeur] = np.minimum(page[y:y + hauteur, x:x + largeur], a)
 
 
 def bords_blancs(page: np.ndarray) -> None:

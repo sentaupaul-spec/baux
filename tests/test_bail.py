@@ -9,7 +9,9 @@ import threading
 from pathlib import Path
 
 import fitz
+import numpy as np
 import pytest
+from PIL import Image
 from playwright.sync_api import sync_playwright
 
 RACINE = Path(__file__).resolve().parent.parent
@@ -57,6 +59,8 @@ def remplir(p, prenom="Julie", nom="Martin", effet="2026-09-01", code="MD2", **a
     p.fill("#c-prenom", prenom)
     p.fill("#c-nom", nom)
     p.fill("#c-effet", effet)
+    for champ, defaut in [("naissance", "12/03/2001"), ("lieu", "Nîmes"), ("tel", "0612345678"), ("email", "julie@example.com")]:
+        autres.setdefault(champ, defaut)
     for champ, valeur in autres.items():
         p.fill(f"#c-{champ}", valeur)
 
@@ -127,12 +131,13 @@ def test_bail_complet(page):
     t = tout_texte(doc)
     for attendu in [
         "CRESP Annie", "SCI CBI", "60 rue Dora Maar", "locationslogements34@gmail.com",
-        "Julie MARTIN — julie@example.com",
+        "Nom et prénom du locataire : Julie MARTIN", "Date et lieu de naissance : 12/03/2001 à Nîmes",
+        "Téléphone : 06 12 34 56 78", "Adresse e-mail : julie@example.com",
         "11 rue Guillaume d'Autignac — Bâtiment C9", "2e étage — 34070 Montpellier",
         "Cellier privé", "Cuisine équipée", "01/09/2026", "1 an",
         "380 € + 70 € de charges = 450 €", "380 € (trois cent quatre-vingts euros)",
         "quatre cent cinquante euros", "soixante-dix euros",
-        "1er septembre de chaque année", "par virement bancaire",
+        "Réactualisé avec le loyer", "par virement bancaire",
         "Dépôt d'1 mois de loyer (encaissé)", "Toutes fêtes interdites", "Montpellier",
     ]:
         assert attendu in t, attendu
@@ -281,6 +286,49 @@ def test_pas_d_encadre_a_joindre(page):
     assert "À joindre" not in texte and "DPE" not in texte
     assert page.is_visible("#btn-nouveau")
     page.screenshot(path=str(SORTIE / "apres_enregistrement.png"))
+
+
+@pytest.mark.parametrize("champ,valeur,attendu", [
+    ("naissance", "", "date de naissance"), ("naissance", "31/02/2001", "pas lisible"),
+    ("naissance", "12/03/2999", "pas lisible"), ("lieu", "", "lieu de naissance"),
+    ("tel", "", "téléphone"), ("tel", "appeler", "pas lisible"),
+    ("email", "", "e-mail"), ("email", "julie", "incomplète"),
+])
+def test_coordonnees_du_locataire_exigees(page, champ, valeur, attendu):
+    remplir(page, **{champ: valeur})
+    page.click("#btn-apercu")
+    assert page.is_hidden("#apercu")
+    assert attendu in page.inner_text("#message")
+    assert "invalide" in page.get_attribute(f"#c-{champ}", "class")
+
+
+def test_date_de_naissance_sans_barres(page):
+    remplir(page, naissance="12032001", tel="+32 470 12 34 56")
+    _, doc, _ = telecharger(page, "bail_coordonnees.pdf")
+    t = doc[1].get_text()
+    assert "12/03/2001 à Nîmes" in t and "+32 470 12 34 56" in t
+
+
+def test_ancien_bloc_locataire_retire_du_modele():
+    im = np.asarray(Image.open(RACINE / "assets/pages/page2.jpg").convert("L"))
+    assert (im[484:580, 140:1500] < 140).sum() == 0, "ancien libellé ou pointillés encore présents"
+    assert (im[642:678, 100:1500] < 140).sum() > 500, "« Désigné » n'a pas été descendu"
+
+
+def test_clause_resolutoire_reecrite_dans_le_modele():
+    im = np.asarray(Image.open(RACINE / "assets/pages/page6.jpg").convert("L"))
+    # L'ancienne deuxième ligne ne contenait que « charge » ; la nouvelle va bien au-delà.
+    assert (im[1940:1960, 400:560] < 140).sum() > 200
+    # Rien ne dépasse à droite ni ne touche le trait des notes.
+    assert (im[1905:1975, 1440:1500] < 140).sum() == 0
+
+
+def test_mode_de_charges_non_coche(page):
+    remplir(page)
+    _, doc, _ = telecharger(page, "bail_charges.pdf")
+    echelle = 595.28 / 1654
+    case = fitz.Rect(106, 1351, 139, 1383) * fitz.Matrix(echelle, echelle)
+    assert not [d for d in doc[3].get_drawings() if d["rect"].intersects(case)]
 
 
 def test_garant_abandonne_non_imprime(page):

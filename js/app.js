@@ -94,12 +94,37 @@ function erreur(champ, texte) {
   return null;
 }
 
+/** « 12/03/2001 », « 12 03 2001 » ou « 12032001 » → « 12/03/2001 » ; null si la date n'existe pas ou est à venir. */
+function lireDateNaissance(s) {
+  const m = s.match(/^(\d{1,2})\D+(\d{1,2})\D+(\d{4})$/) || s.match(/^(\d{2})(\d{2})(\d{4})$/);
+  if (!m) return null;
+  const [j, mois, a] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const d = new Date(a, mois - 1, j);
+  if (d.getDate() !== j || d.getMonth() !== mois - 1 || a < 1900 || d > new Date()) return null;
+  return `${String(j).padStart(2, "0")}/${String(mois).padStart(2, "0")}/${a}`;
+}
+
+/** Un numéro français est présenté par paires ; un numéro étranger reste tel que saisi. */
+function lireTelephone(s) {
+  const chiffres = s.replace(/\D/g, "");
+  if (!/^[+0-9 .()-]+$/.test(s) || chiffres.length < 8 || chiffres.length > 15) return null;
+  return /^0\d{9}$/.test(chiffres) && !s.startsWith("+") ? chiffres.replace(/(\d{2})(?=\d)/g, "$1 ") : s;
+}
+
 function lireFormulaire() {
   document.querySelectorAll(".invalide").forEach((e) => e.classList.remove("invalide"));
   const v = (id) => $(id).value.trim();
   if (!v("c-prenom")) return erreur($("c-prenom"), "Il manque le prénom du locataire.");
   if (!v("c-nom")) return erreur($("c-nom"), "Il manque le nom du locataire.");
-  if (v("c-email") && !/^\S+@\S+\.\S+$/.test(v("c-email"))) return erreur($("c-email"), "L'adresse e-mail semble incomplète. Corrigez-la ou laissez la case vide.");
+  if (!v("c-naissance")) return erreur($("c-naissance"), "Il manque la date de naissance du locataire.");
+  const dateNaissance = lireDateNaissance(v("c-naissance"));
+  if (!dateNaissance) return erreur($("c-naissance"), "La date de naissance n'est pas lisible. Exemple : 12/03/2001");
+  if (!v("c-lieu")) return erreur($("c-lieu"), "Il manque le lieu de naissance du locataire.");
+  if (!v("c-tel")) return erreur($("c-tel"), "Il manque le téléphone du locataire.");
+  const telephone = lireTelephone(v("c-tel"));
+  if (!telephone) return erreur($("c-tel"), "Le téléphone n'est pas lisible. Exemple : 06 12 34 56 78");
+  if (!v("c-email")) return erreur($("c-email"), "Il manque l'e-mail du locataire.");
+  if (!/^\S+@\S+\.\S+$/.test(v("c-email"))) return erreur($("c-email"), "L'adresse e-mail semble incomplète. Vérifiez-la.");
   if (garantOui() && !v("c-garant-nom")) return erreur($("c-garant-nom"), "Il manque le nom du garant.");
   if (garantOui() && !v("c-garant-adresse")) return erreur($("c-garant-adresse"), "Il manque l'adresse du garant (numéro et rue).");
   if (garantOui() && !v("c-garant-cp")) return erreur($("c-garant-cp"), "Il manque le code postal du garant.");
@@ -115,6 +140,9 @@ function lireFormulaire() {
     logement: LOGEMENTS[code],
     prenom: v("c-prenom"),
     nom: v("c-nom"),
+    dateNaissance,
+    lieuNaissance: v("c-lieu"),
+    telephone,
     email: v("c-email"),
     garantNom: garantOui() ? v("c-garant-nom") : "",
     garantAdresse: garantOui() ? `${v("c-garant-adresse")}, ${v("c-garant-cp")} ${v("c-garant-ville")}` : "",
